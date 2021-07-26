@@ -1,3 +1,4 @@
+use pru::pru_check;
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -40,13 +41,13 @@ struct Pru {
     cmd: Cmd,
     /// Path to your Procfile
     #[structopt(long, short = "-f", default_value = "Procfile")]
-    procfile: String,
+    procfile: PathBuf,
     /// Procfile directory
-    #[structopt(long, short = "-d", default_value=".")]
+    #[structopt(long, short = "-d", default_value = ".")]
     root: PathBuf,
 }
 
-fn main() {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Pru::from_args();
     let out = std::io::stdout();
     let root = args.root;
@@ -54,7 +55,7 @@ fn main() {
 
     match args.cmd {
         Cmd::Check => {
-            pru_check(root, procfile, out);
+            pru_check(&root, procfile, out)?;
         }
         Cmd::Export { format, location } => {
             pru_export(root, procfile, format, location, out);
@@ -69,21 +70,36 @@ fn main() {
             pru_version(out);
         }
     }
+
+    Ok(())
 }
 
-fn pru_check(_root: PathBuf, _procfile: String, mut _writer: impl std::io::Write) {
+fn pru_export(
+    _root: PathBuf,
+    _procfile: PathBuf,
+    _format: String,
+    _location: PathBuf,
+    mut _writer: impl std::io::Write,
+) {
     not_yet_implemented();
 }
 
-fn pru_export(_root: PathBuf, _procfile: String, _format: String, _location: PathBuf, mut _writer: impl std::io::Write) {
+fn pru_run(
+    _root: PathBuf,
+    _procfile: PathBuf,
+    _command: String,
+    _args: Vec<String>,
+    mut _writer: impl std::io::Write,
+) {
     not_yet_implemented();
 }
 
-fn pru_run(_root: PathBuf, _procfile: String, _command: String, _args: Vec<String>, mut _writer: impl std::io::Write) {
-    not_yet_implemented();
-}
-
-fn pru_start(_root: PathBuf, _procfile: String, _process: Option<String>, mut _writer: impl std::io::Write) {
+fn pru_start(
+    _root: PathBuf,
+    _procfile: PathBuf,
+    _process: Option<String>,
+    mut _writer: impl std::io::Write,
+) {
     not_yet_implemented();
 }
 
