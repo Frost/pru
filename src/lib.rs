@@ -1,7 +1,53 @@
-use std::fs;
-use std::path::PathBuf;
 use anyhow::{Context, Result};
+use std::fs;
 use std::io::{Error, ErrorKind};
+use std::path::PathBuf;
+use structopt::StructOpt;
+
+#[derive(StructOpt, Debug)]
+#[structopt(about = "Run Procfile-based applications")]
+pub enum Cmd {
+    /// Validate your application's Procfile
+    #[structopt(name = "check")]
+    Check,
+    /// Export the application to another process management format
+    #[structopt(name = "export")]
+    Export {
+        /// What format to export
+        format: String,
+        /// Path to export the application to
+        location: PathBuf,
+    },
+    /// Run a command using your application's environment
+    #[structopt(name = "run")]
+    Run {
+        /// Command to run
+        command: String,
+        /// Args for the command
+        args: Vec<String>,
+    },
+    /// Start the application (or a specific process)
+    #[structopt(name = "start")]
+    Start {
+        /// Process to start
+        process: Option<String>,
+    },
+    /// Display current version
+    #[structopt(name = "version")]
+    Version,
+}
+
+#[derive(StructOpt)]
+pub struct Pru {
+    #[structopt(subcommand)]
+    pub cmd: Cmd,
+    /// Path to your Procfile
+    #[structopt(long, short = "-f", default_value = "Procfile")]
+    pub procfile: PathBuf,
+    /// Procfile directory
+    #[structopt(long, short = "-d", default_value = ".")]
+    pub root: PathBuf,
+}
 
 #[derive(Debug, PartialEq)]
 pub struct SystemCommand {
@@ -43,23 +89,37 @@ impl Procfile {
     }
 }
 
-
-
-pub fn pru_check(_procfile_dir: &PathBuf, procfile_path: PathBuf, mut writer: impl std::io::Write) -> Result<(), Box<dyn std::error::Error>> {
-    let contents = fs::read_to_string(&procfile_path)
-        .with_context(|| format!("ERROR: Procfile does not exist: {}", &procfile_path.display()))?;
+pub fn pru_check(
+    args: Pru,
+    mut writer: impl std::io::Write,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // pub fn pru_check(_procfile_dir: &PathBuf, procfile_path: PathBuf, mut writer: impl std::io::Write) -> Result<(), Box<dyn std::error::Error>> {
+    let procfile_path = args.procfile;
+    let contents = fs::read_to_string(&procfile_path).with_context(|| {
+        format!(
+            "ERROR: Procfile does not exist: {}",
+            &procfile_path.display()
+        )
+    })?;
 
     let procfile = Procfile::from(contents.as_str());
 
     if procfile.commands.len() < 1 {
-        return Err(Box::new(Error::new(ErrorKind::Other, "ERROR: no processes defined")));
+        return Err(Box::new(Error::new(
+            ErrorKind::Other,
+            "ERROR: no processes defined",
+        )));
     }
 
     let mut valid_commands = vec![];
     for command in &procfile.commands {
         valid_commands.push(String::from(&command.key));
     }
-    writeln!(writer, "valid procfile detected ({})", &valid_commands.join(", "))?;
+    writeln!(
+        writer,
+        "valid procfile detected ({})",
+        &valid_commands.join(", ")
+    )?;
     Ok(())
 }
 
@@ -67,10 +127,10 @@ pub fn pru_check(_procfile_dir: &PathBuf, procfile_path: PathBuf, mut writer: im
 mod tests {
     use assert_cmd::prelude::*;
     use predicates::prelude::*;
+    use std::error::Error;
     use std::io::Write;
     use std::process::Command;
     use tempfile::NamedTempFile;
-    use std::error::Error;
 
     #[test]
     fn a_procfile_can_be_parsed() -> Result<(), Box<dyn std::error::Error>> {
@@ -80,8 +140,7 @@ mod tests {
 
         let mut cmd = Command::cargo_bin("pru")?;
 
-        cmd.args(&["-f", file_path])
-            .arg("check");
+        cmd.args(&["-f", file_path]).arg("check");
 
         cmd.assert()
             .success()
@@ -97,8 +156,7 @@ mod tests {
 
         let mut cmd = Command::cargo_bin("pru")?;
 
-        cmd.args(&["-f",file_path])
-            .arg("check");
+        cmd.args(&["-f", file_path]).arg("check");
 
         cmd.assert()
             .failure()
