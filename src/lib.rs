@@ -1,4 +1,3 @@
-use anyhow::{Context, Result};
 use std::fs;
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
@@ -95,14 +94,16 @@ pub fn pru_check(
 ) -> Result<(), Box<dyn std::error::Error>> {
     // pub fn pru_check(_procfile_dir: &PathBuf, procfile_path: PathBuf, mut writer: impl std::io::Write) -> Result<(), Box<dyn std::error::Error>> {
     let procfile_path = args.procfile;
-    let contents = fs::read_to_string(&procfile_path).with_context(|| {
-        format!(
-            "ERROR: Procfile does not exist: {}",
-            &procfile_path.display()
-        )
-    })?;
-
-    let procfile = Procfile::from(contents.as_str());
+    let procfile = match fs::read_to_string(&procfile_path) {
+        Ok(contents) => Procfile::from(contents.as_str()),
+        Err(_e) => {
+            let error_message = format!(
+                "ERROR: Procfile does not exist: {}",
+                procfile_path.display()
+            );
+            return Err(Box::new(Error::new(ErrorKind::NotFound, error_message)));
+        }
+    };
 
     if procfile.commands.len() < 1 {
         return Err(Box::new(Error::new(
