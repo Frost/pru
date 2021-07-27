@@ -1,12 +1,13 @@
-use pru::{pru_check, Cmd, Pru};
+use pru::{Cmd, Pru};
 use structopt::StructOpt;
+mod subcommand;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Pru::from_args();
     let out = std::io::stdout();
 
     match args.cmd {
-        Cmd::Check { .. } => pru_check(args, out)?,
+        Cmd::Check { .. } => subcommand::check::run(args, out)?,
         Cmd::Export { .. } => not_yet_implemented(args, out),
         Cmd::Run { .. } => not_yet_implemented(args, out),
         Cmd::Start { .. } => not_yet_implemented(args, out),

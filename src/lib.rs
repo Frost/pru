@@ -1,5 +1,3 @@
-use std::fs;
-use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 use structopt::StructOpt;
 
@@ -50,8 +48,8 @@ pub struct Pru {
 
 #[derive(Debug, PartialEq)]
 pub struct SystemCommand {
-    key: String,
-    command: String,
+    pub key: String,
+    pub command: String,
 }
 
 impl From<&str> for SystemCommand {
@@ -66,7 +64,7 @@ impl From<&str> for SystemCommand {
 
 #[derive(Debug, PartialEq)]
 pub struct Procfile {
-    commands: Vec<SystemCommand>,
+    pub commands: Vec<SystemCommand>,
 }
 
 impl From<&str> for Procfile {
@@ -85,99 +83,6 @@ impl From<&str> for Procfile {
 impl Procfile {
     pub fn valid(&self) -> bool {
         self.commands.len() > 0
-    }
-}
-
-pub fn pru_check(
-    args: Pru,
-    mut writer: impl std::io::Write,
-) -> Result<(), Box<dyn std::error::Error>> {
-    // pub fn pru_check(_procfile_dir: &PathBuf, procfile_path: PathBuf, mut writer: impl std::io::Write) -> Result<(), Box<dyn std::error::Error>> {
-    let procfile_path = args.procfile;
-    let procfile = match fs::read_to_string(&procfile_path) {
-        Ok(contents) => Procfile::from(contents.as_str()),
-        Err(_e) => {
-            let error_message = format!(
-                "ERROR: Procfile does not exist: {}",
-                procfile_path.display()
-            );
-            return Err(Box::new(Error::new(ErrorKind::NotFound, error_message)));
-        }
-    };
-
-    if procfile.commands.len() < 1 {
-        return Err(Box::new(Error::new(
-            ErrorKind::Other,
-            "ERROR: no processes defined",
-        )));
-    }
-
-    let mut valid_commands = vec![];
-    for command in &procfile.commands {
-        valid_commands.push(String::from(&command.key));
-    }
-    writeln!(
-        writer,
-        "valid procfile detected ({})",
-        &valid_commands.join(", ")
-    )?;
-    Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use assert_cmd::prelude::*;
-    use predicates::prelude::*;
-    use std::error::Error;
-    use std::io::Write;
-    use std::process::Command;
-    use tempfile::NamedTempFile;
-
-    #[test]
-    fn a_procfile_can_be_parsed() -> Result<(), Box<dyn std::error::Error>> {
-        let file = NamedTempFile::new()?;
-        let file_path = file.path().to_str().unwrap();
-        writeln!(&file, "foo: ./foo")?;
-
-        let mut cmd = Command::cargo_bin("pru")?;
-
-        cmd.args(&["-f", file_path]).arg("check");
-
-        cmd.assert()
-            .success()
-            .stdout(predicate::str::contains("valid procfile detected (foo)"));
-
-        Ok(())
-    }
-
-    #[test]
-    fn empty_procfile_displays_an_error() -> Result<(), Box<dyn Error>> {
-        let file = NamedTempFile::new()?;
-        let file_path = file.path().to_str().unwrap();
-
-        let mut cmd = Command::cargo_bin("pru")?;
-
-        cmd.args(&["-f", file_path]).arg("check");
-
-        cmd.assert()
-            .failure()
-            .stderr(predicate::str::contains("ERROR: no processes defined"));
-
-        Ok(())
-    }
-
-    #[test]
-    fn non_existing_proc_files_generate_error() -> Result<(), Box<dyn Error>> {
-        let mut cmd = Command::cargo_bin("pru")?;
-
-        cmd.args(&["-f", "/some/non-existing/test/file"])
-            .arg("check");
-
-        cmd.assert()
-            .failure()
-            .stderr(predicate::str::contains("Procfile does not exist"));
-
-        Ok(())
     }
 }
 
