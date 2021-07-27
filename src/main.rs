@@ -10,7 +10,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Cmd::Check { .. } => subcommand::check::run(args, out)?,
         Cmd::Export { .. } => not_yet_implemented(args, out),
         Cmd::Run { .. } => not_yet_implemented(args, out),
-        Cmd::Start { .. } => not_yet_implemented(args, out),
+        Cmd::Start { .. } => subcommand::start::run(args, out)?,
         Cmd::Version => pru_version(args, out),
     }
 
