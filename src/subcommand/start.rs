@@ -15,7 +15,7 @@ struct Event {
     message: String,
 }
 
-pub fn run(args: Pru, mut writer: impl Write) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(args: Pru, mut out: impl Write, mut err: impl Write) -> Result<(), Box<dyn std::error::Error>> {
     let procfile_path = args.procfile;
     let procfile = match fs::read_to_string(&procfile_path) {
         Ok(contents) => Procfile::from(contents.as_str()),
@@ -27,16 +27,21 @@ pub fn run(args: Pru, mut writer: impl Write) -> Result<(), Box<dyn std::error::
     // * start the command
     // * have the command send all its output (and error) back to us
     for command in &procfile.commands {
-        let (out, err) = producer(&command.command.clone());
-        consumer(command.key.clone(), "info".to_string(), out, tx.clone());
-        consumer(command.key.clone(), "error".to_string(), err, tx.clone());
+        let (cmdout, cmderr) = producer(&command.command.clone());
+        consumer(command.key.clone(), "stdout".to_string(), cmdout, tx.clone());
+        consumer(command.key.clone(), "stderr".to_string(), cmderr, tx.clone());
     }
 
     // * loop over all received input and display it
     loop {
         // if let Ok(event) = rx.try_recv() {
         if let Ok(event) = rx.recv() {
-            writeln!(writer, "{:?}", event)?;
+            let message = format!("{} [{}] {}", event.command, event.level, event.message);
+            match event.level.as_str() {
+                "stdout" => writeln!(out, "{}", &message)?,
+                "stderr" => writeln!(err, "{}", &message)?,
+                &_ => continue,
+            };
         }
     }
 
@@ -48,6 +53,8 @@ fn producer(command: &str) -> (impl Read, impl Read) {
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
+        // Do we need to catch this in some other way?
+        // How to handle when sub processes die?
         .expect("failed to spawn command");
 
     (sh.stdout.unwrap(), sh.stderr.unwrap())
