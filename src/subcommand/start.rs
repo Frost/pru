@@ -34,7 +34,6 @@ pub fn run(args: Pru, mut out: impl Write, mut err: impl Write) -> Result<(), Bo
 
     // * loop over all received input and display it
     loop {
-        // if let Ok(event) = rx.try_recv() {
         if let Ok(event) = rx.recv() {
             let message = format!("{} [{}] {}", event.command, event.level, event.message);
             match event.level.as_str() {
@@ -44,8 +43,6 @@ pub fn run(args: Pru, mut out: impl Write, mut err: impl Write) -> Result<(), Bo
             };
         }
     }
-
-    Ok(())
 }
 
 fn producer(command: &str) -> (impl Read, impl Read) {
