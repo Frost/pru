@@ -15,7 +15,6 @@ use crossterm::execute;
 #[derive(Debug)]
 struct Event {
     command: String,
-    level: String,
     message: String,
     color: Color,
 }
@@ -63,8 +62,8 @@ pub fn run(args: Pru, mut out: impl Write) -> Result<(), Box<dyn std::error::Err
     for (index, command) in procfile.commands.iter().enumerate() {
         let color = colors[index % colors.len()];
         let (cmdout, cmderr) = producer(&command.command.clone());
-        consumer(command.key.clone(), "stdout".to_string(), cmdout, tx.clone(), color);
-        consumer(command.key.clone(), "stderr".to_string(), cmderr, tx.clone(), color);
+        consumer(command.key.clone(), cmdout, tx.clone(), color);
+        consumer(command.key.clone(), cmderr, tx.clone(), color);
     }
 
     // * loop over all received input and display it
@@ -87,17 +86,16 @@ fn producer(command: &str) -> (impl Read, impl Read) {
     (sh.stdout.unwrap(), sh.stderr.unwrap())
 }
 
-fn consumer(command: String, level: String, reader: impl std::io::Read + Send + 'static, tx: mpsc::Sender<Event>, color: Color) {
+fn consumer(command: String, reader: impl std::io::Read + Send + 'static, tx: mpsc::Sender<Event>, color: Color) {
     thread::spawn(move|| {
-        listener(&command, level, reader, tx, color);
+        listener(&command, reader, tx, color);
     });
 }
 
-fn listener(command: &String, level: String, reader: impl std::io::Read, tx: mpsc::Sender<Event>, color: Color) {
+fn listener(command: &String, reader: impl std::io::Read, tx: mpsc::Sender<Event>, color: Color) {
     for line in BufReader::new(reader).lines() {
         tx.send(Event {
             command: command.clone(),
-            level: level.clone(),
             message: line.unwrap(),
             color: color,
         })
