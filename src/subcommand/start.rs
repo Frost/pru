@@ -7,12 +7,16 @@ use std::process::Stdio;
 use std::sync::mpsc;
 use std::thread;
 use std::fs;
+use crossterm::style::{Color, Print, SetForegroundColor, ResetColor, style, Colorize};
+use crossterm::execute;
+
 
 #[derive(Debug)]
 struct Event {
     command: String,
     level: String,
     message: String,
+    color: Color,
 }
 
 pub fn run(args: Pru, mut out: impl Write, mut err: impl Write) -> Result<(), Box<dyn std::error::Error>> {
@@ -23,13 +27,33 @@ pub fn run(args: Pru, mut out: impl Write, mut err: impl Write) -> Result<(), Bo
     };
     let (tx, rx) = mpsc::channel::<Event>();
 
+    let colors = &[
+        crossterm::style::Color::Black,
+        crossterm::style::Color::Red,
+        crossterm::style::Color::Green,
+        crossterm::style::Color::Blue,
+        crossterm::style::Color::Magenta,
+        crossterm::style::Color::Cyan,
+        crossterm::style::Color::Grey,
+        crossterm::style::Color::Yellow,
+        crossterm::style::Color::White,
+        crossterm::style::Color::DarkGrey,
+        crossterm::style::Color::DarkRed,
+        crossterm::style::Color::DarkGreen,
+        crossterm::style::Color::DarkBlue,
+        crossterm::style::Color::DarkMagenta,
+        crossterm::style::Color::DarkCyan,
+        crossterm::style::Color::DarkYellow,
+    ];
+
     // for each command in the procfile
     // * start the command
     // * have the command send all its output (and error) back to us
-    for command in &procfile.commands {
+    for (index, command) in procfile.commands.iter().enumerate() {
+        let color = colors[index % colors.len()];
         let (cmdout, cmderr) = producer(&command.command.clone());
-        consumer(command.key.clone(), "stdout".to_string(), cmdout, tx.clone());
-        consumer(command.key.clone(), "stderr".to_string(), cmderr, tx.clone());
+        consumer(command.key.clone(), "stdout".to_string(), cmdout, tx.clone(), color);
+        consumer(command.key.clone(), "stderr".to_string(), cmderr, tx.clone(), color);
     }
 
     // * loop over all received input and display it
@@ -37,8 +61,25 @@ pub fn run(args: Pru, mut out: impl Write, mut err: impl Write) -> Result<(), Bo
         if let Ok(event) = rx.recv() {
             let message = format!("{} [{}] {}", event.command, event.level, event.message);
             match event.level.as_str() {
-                "stdout" => writeln!(out, "{}", &message)?,
-                "stderr" => writeln!(err, "{}", &message)?,
+                "stdout" => {
+                    execute!(
+                        out,
+                        SetForegroundColor(event.color),
+                        Print(&event.command),
+                        ResetColor,
+                        Print(format!(" {}\n", event.message)),
+                    )?
+                }
+                "stderr" => {
+                    execute!(
+                        out,
+                        SetForegroundColor(event.color),
+                        Print(&event.command),
+                        SetForegroundColor(crossterm::style::Color::Red),
+                        Print(format!(" {}\n", event.message)),
+                        ResetColor,
+                    )?
+                }
                 &_ => continue,
             };
         }
@@ -57,18 +98,19 @@ fn producer(command: &str) -> (impl Read, impl Read) {
     (sh.stdout.unwrap(), sh.stderr.unwrap())
 }
 
-fn consumer(command: String, level: String, reader: impl std::io::Read + Send + 'static, tx: mpsc::Sender<Event>) {
+fn consumer(command: String, level: String, reader: impl std::io::Read + Send + 'static, tx: mpsc::Sender<Event>, color: Color) {
     thread::spawn(move|| {
-        listener(&command, level, reader, tx);
+        listener(&command, level, reader, tx, color);
     });
 }
 
-fn listener(command: &String, level: String, reader: impl std::io::Read, tx: mpsc::Sender<Event>) {
+fn listener(command: &String, level: String, reader: impl std::io::Read, tx: mpsc::Sender<Event>, color: Color) {
     for line in BufReader::new(reader).lines() {
         tx.send(Event {
             command: command.clone(),
             level: level.clone(),
             message: line.unwrap(),
+            color: color,
         })
         .unwrap();
     }
