@@ -5,13 +5,12 @@ mod subcommand;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Pru::from_args();
     let out = std::io::stdout();
-    let err = std::io::stderr();
 
     match args.cmd {
         Cmd::Check { .. } => subcommand::check::run(args, out)?,
         Cmd::Export { .. } => not_yet_implemented(args, out),
         Cmd::Run { .. } => not_yet_implemented(args, out),
-        Cmd::Start { .. } => subcommand::start::run(args, out, err)?,
+        Cmd::Start { .. } => subcommand::start::run(args, out)?,
         Cmd::Version => pru_version(args, out),
     }
 

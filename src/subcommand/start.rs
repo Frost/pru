@@ -7,7 +7,8 @@ use std::process::Stdio;
 use std::sync::mpsc;
 use std::thread;
 use std::fs;
-use crossterm::style::{Color, Print, SetForegroundColor, ResetColor, style, Colorize};
+use crossterm::style::{Color, Print, style};
+
 use crossterm::execute;
 
 
@@ -19,7 +20,17 @@ struct Event {
     color: Color,
 }
 
-pub fn run(args: Pru, mut out: impl Write, mut err: impl Write) -> Result<(), Box<dyn std::error::Error>> {
+impl Event {
+    fn print(&self, mut stream: impl Write) -> Result<(), crossterm::ErrorKind> {
+        execute!(
+            stream,
+            Print(style(&self.command).with(self.color)),
+            Print(format!(" {}\n", &self.message)),
+        )
+    }
+}
+
+pub fn run(args: Pru, mut out: impl Write) -> Result<(), Box<dyn std::error::Error>> {
     let procfile_path = args.procfile;
     let procfile = match fs::read_to_string(&procfile_path) {
         Ok(contents) => Procfile::from(contents.as_str()),
@@ -28,22 +39,22 @@ pub fn run(args: Pru, mut out: impl Write, mut err: impl Write) -> Result<(), Bo
     let (tx, rx) = mpsc::channel::<Event>();
 
     let colors = &[
-        crossterm::style::Color::Black,
-        crossterm::style::Color::Red,
-        crossterm::style::Color::Green,
-        crossterm::style::Color::Blue,
-        crossterm::style::Color::Magenta,
-        crossterm::style::Color::Cyan,
-        crossterm::style::Color::Grey,
-        crossterm::style::Color::Yellow,
-        crossterm::style::Color::White,
-        crossterm::style::Color::DarkGrey,
-        crossterm::style::Color::DarkRed,
-        crossterm::style::Color::DarkGreen,
-        crossterm::style::Color::DarkBlue,
-        crossterm::style::Color::DarkMagenta,
-        crossterm::style::Color::DarkCyan,
-        crossterm::style::Color::DarkYellow,
+        Color::Black,
+        Color::Red,
+        Color::Green,
+        Color::Blue,
+        Color::Magenta,
+        Color::Cyan,
+        Color::Grey,
+        Color::Yellow,
+        Color::White,
+        Color::DarkGrey,
+        Color::DarkRed,
+        Color::DarkGreen,
+        Color::DarkBlue,
+        Color::DarkMagenta,
+        Color::DarkCyan,
+        Color::DarkYellow,
     ];
 
     // for each command in the procfile
@@ -59,29 +70,7 @@ pub fn run(args: Pru, mut out: impl Write, mut err: impl Write) -> Result<(), Bo
     // * loop over all received input and display it
     loop {
         if let Ok(event) = rx.recv() {
-            let message = format!("{} [{}] {}", event.command, event.level, event.message);
-            match event.level.as_str() {
-                "stdout" => {
-                    execute!(
-                        out,
-                        SetForegroundColor(event.color),
-                        Print(&event.command),
-                        ResetColor,
-                        Print(format!(" {}\n", event.message)),
-                    )?
-                }
-                "stderr" => {
-                    execute!(
-                        out,
-                        SetForegroundColor(event.color),
-                        Print(&event.command),
-                        SetForegroundColor(crossterm::style::Color::Red),
-                        Print(format!(" {}\n", event.message)),
-                        ResetColor,
-                    )?
-                }
-                &_ => continue,
-            };
+            event.print(&mut out)?;
         }
     }
 }
