@@ -1,14 +1,13 @@
 use std::path::PathBuf;
-use structopt::StructOpt;
+use clap::Parser;
 
-#[derive(StructOpt, Debug)]
-#[structopt(about = "Run Procfile-based applications")]
+#[derive(Parser, Debug)]
 pub enum Cmd {
     /// Validate your application's Procfile
-    #[structopt(name = "check")]
+    #[clap(name = "check")]
     Check,
     /// Export the application to another process management format
-    #[structopt(name = "export")]
+    #[clap(name = "export")]
     Export {
         /// What format to export
         format: String,
@@ -16,7 +15,7 @@ pub enum Cmd {
         location: PathBuf,
     },
     /// Run a command using your application's environment
-    #[structopt(name = "run")]
+    #[clap(name = "run")]
     Run {
         /// Command to run
         command: String,
@@ -24,25 +23,26 @@ pub enum Cmd {
         args: Vec<String>,
     },
     /// Start the application (or a specific process)
-    #[structopt(name = "start")]
+    #[clap(name = "start")]
     Start {
         /// Process to start
         process: Option<String>,
     },
     /// Display current version
-    #[structopt(name = "version")]
+    #[clap(name = "version")]
     Version,
 }
 
-#[derive(StructOpt)]
+#[derive(Parser,Debug)]
+#[clap(version, about)]
 pub struct Pru {
-    #[structopt(subcommand)]
+    #[clap(subcommand)]
     pub cmd: Cmd,
     /// Path to your Procfile
-    #[structopt(long, short = "-f", default_value = "Procfile")]
+    #[clap(long, short = 'f', default_value = "Procfile")]
     pub procfile: PathBuf,
     /// Procfile directory
-    #[structopt(long, short = "-d", default_value = ".")]
+    #[clap(long, short = 'd', default_value = ".")]
     pub root: PathBuf,
 }
 

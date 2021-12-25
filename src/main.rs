@@ -1,9 +1,9 @@
 use pru::{Cmd, Pru};
-use structopt::StructOpt;
+use clap::Parser;
 mod subcommand;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args = Pru::from_args();
+    let args = Pru::parse();
     let out = std::io::stdout();
 
     match args.cmd {
